@@ -22,7 +22,13 @@
  *    2017-06-10  Dan Ogorchock  Added Dimmer Switch support
  *    2017-07-09  Dan Ogorchock  Added number of defined buttons tile
  *    2017-08-24  Allan (vseven) Change the way values are pushed to child devices to allow a event to be executed allowing future customization
- *
+ *    2018-02-15  Dan Ogorchock  Added @saif76's Ultrasonic Sensor *
+ *    2018-02-25  Dan Ogorchock  Added Child Presence Sensor
+ *    2018-02-25  Dan Ogorchock  Added Child Presence Sensor
+ *    2018-06-05  Dan Ogorchock  Simplified Parent & Child Device Handlers
+ *    2018-06-24  Dan Ogorchock  Added Child Servo
+ *    2018-07-01  Dan Ogorchock  Added Pressure Measurement
+ *	
  */
  
 metadata {
@@ -31,7 +37,9 @@ metadata {
         capability "Refresh"
         capability "Button"
         capability "Holdable Button"
-	}
+        
+        command "sendData", ["string"]
+    }
 
     simulator {
     }
@@ -138,15 +146,8 @@ def parse(String description) {
             
             if (childDevice != null) {
                 //log.debug "parse() found child device ${childDevice.deviceNetworkId}"
-//                if (namebase == "dimmerSwitch") { namebase = "switch"}  //use a "switch" attribute to maintain standards
-//                childDevice.sendEvent(name: namebase, value: value)
-                childDevice.generateEvent(namebase, value)
+                childDevice.parse("${namebase} ${value}")
 				log.debug "${childDevice.deviceNetworkId} - name: ${namebase}, value: ${value}"
-                //If event was dor a "Door Control" device, also update the child door control device's "Contact Sensor" to keep everything in synch
-//                if (namebase == "doorControl") {
-//                	childDevice.sendEvent(name: "contact", value: value)
-//                    log.debug "${childDevice.deviceNetworkId} - name: contact, value: ${value}"
-//                }
             }
             else  //must not be a child, perform normal update
             {
@@ -162,6 +163,10 @@ def parse(String description) {
 	}
 }
 
+def sendData(message) {
+    sendThingShield(message) 
+}
+
 def sendThingShield(message) {
 	log.debug "Executing 'sendThingShield' ${message}"
     def cmd = zigbee.smartShield(text: "${message}").format()
@@ -169,89 +174,6 @@ def sendThingShield(message) {
 }
 
 // handle commands
-def childAlarmOn(String dni) {
-    def name = dni.split("-")[-1]
-    log.debug "childAlarmOn($dni), name = ${name}"
-    sendThingShield("${name} both")
-}
-
-def childAlarmSiren(String dni) {
-    def name = dni.split("-")[-1]
-    log.debug "childAlarmOn($dni), name = ${name}"
-    sendThingShield("${name} siren")
-}
-
-def childAlarmStrobe(String dni) {
-    def name = dni.split("-")[-1]
-    log.debug "childAlarmOn($dni), name = ${name}"
-    sendThingShield("${name} strobe")
-}
-
-def childAlarmBoth(String dni) {
-    def name = dni.split("-")[-1]
-    log.debug "childAlarmOn($dni), name = ${name}"
-    sendThingShield("${name} both")
-}
-
-def childAlarmOff(String dni) {
-    def name = dni.split("-")[-1]
-    log.debug "childAlarmOff($dni), name = ${name}"
-    sendThingShield("${name} off")
-}
-
-def childAlarmTest(String dni) {
-    def name = dni.split("-")[-1]
-    log.debug "childAlarmTest($dni), name = ${name}"
-    sendThingShield("${name} both")
-	runIn(3, childAlarmTestOff, [data: [devicenetworkid: dni]])
-}
-
-def childAlarmTestOff(data) {
-	childAlarmOff(data.devicenetworkid)
-}
-
-void childDoorOpen(String dni) {
-    def name = dni.split("-")[-1]
-    log.debug "childDoorOpen($dni), name = ${name}"
-    sendThingShield("${name} on")
-}
-
-void childDoorClose(String dni) {
-    def name = dni.split("-")[-1]
-    log.debug "childDoorClose($dni), name = ${name}"
-    sendThingShield("${name} on")
-}
-
-void childOn(String dni) {
-    def name = dni.split("-")[-1]
-	log.debug "childOn($dni), name = ${name}"
-    sendThingShield("${name} on")
-}
-
-void childOff(String dni) {
-    def name = dni.split("-")[-1]
-    log.debug "childOff($dni), name = ${name}"
-    sendThingShield("${name} off")
-}
-
-void childSetLevel(String dni, value) {
-    def name = dni.split("-")[-1]
-    log.debug "childSetLevel($dni), name = ${name}, level = ${value}"
-    sendThingShield("${name} ${value}")
-}
-
-void childRelayOn(String dni) {
-    def name = dni.split("-")[-1]
-    log.debug "childRelayOn($dni), name = ${name}"
-    sendThingShield("${name} on")
-}
-
-void childRelayOff(String dni) {
-    def name = dni.split("-")[-1]
-    log.debug "childRelayOff($dni), name = ${name}"
-    sendThingShield("${name} off")
-}
-
 def configure() {
 	log.debug "Executing 'configure()'"
     refresh()
@@ -304,6 +226,15 @@ private void createChildDevice(String deviceName, String deviceNumber) {
          	case "dimmerSwitch": 
                 deviceHandlerName = "Child Dimmer Switch" 
                 break
+            case "rgbSwitch": 
+            	deviceHandlerName = "Child RGB Switch" 
+            	break
+            case "generic": 
+            	deviceHandlerName = "Child Generic Sensor" 
+            	break
+            case "rgbwSwitch": 
+            	deviceHandlerName = "Child RGBW Switch" 
+            	break
             case "relaySwitch": 
             	deviceHandlerName = "Child Relay Switch" 
             	break
@@ -340,6 +271,21 @@ private void createChildDevice(String deviceName, String deviceNumber) {
             case "doorControl": 
             	deviceHandlerName = "Child Door Control" 
             	break    
+         	case "ultrasonic": 
+                deviceHandlerName = "Child Ultrasonic Sensor" 
+                break
+         	case "presence": 
+                deviceHandlerName = "Child Presence Sensor" 
+                break
+         	case "power": 
+                deviceHandlerName = "Child Power Meter" 
+                break
+         	case "servo": 
+                	deviceHandlerName = "Child Servo" 
+                break
+         	case "pressure": 
+                	deviceHandlerName = "Child Pressure Measurement" 
+                break
             default: 
                 log.error "No Child Device Handler case for ${deviceName}"
         }

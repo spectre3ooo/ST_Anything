@@ -18,17 +18,17 @@
  *    ----        ---            ----
  *    2017-04-10  Dan Ogorchock  Original Creation
  *    2017-08-23  Allan (vseven) Added a generateEvent routine that gets info from the parent device.  This routine runs each time the value is updated which can lead to other modifications of the device.
- *
+ *    2017-11-04  Dan Ogorchock  Added preference for Temperature Unit Conversion: Fahrenheit to Celsius, Celsius to Fahrenheit, or none 
+ *    2018-02-16  Dan Ogorchock  Fixed preferences to work with Hubitat.
+ *    2018-06-02  Dan Ogorchock  Revised/Simplified for Hubitat Composite Driver Model
  * 
  */
 metadata {
-	definition (name: "Child Temperature Sensor", namespace: "ogiewon", author: "Daniel Ogorchock") {
+	definition (name: "Child Temperature Sensor", namespace: "ogiewon", author: "Daniel Ogorchock", mnmn: "SmartThings", vid: "generic-humidity") {
 		capability "Temperature Measurement"
 		capability "Sensor"
 
 		attribute "lastUpdated", "String"
-
-		command "generateEvent", ["string", "string"]
 	}
 
 	simulator {
@@ -37,8 +37,10 @@ metadata {
     
 	preferences {
 		section("Prefs") {
-			input title: "Temperature Offset", description: "This feature allows you to correct any temperature variations by selecting an offset. Ex: If your sensor consistently reports a temp that's 5 degrees too warm, you'd enter \"-5\". If 3 degrees too cold, enter \"+3\".", displayDuringSetup: false, type: "paragraph", element: "paragraph"
-			input "tempOffset", "number", title: "Temperature Offset in Degrees", description: "Adjust temperature by this many degrees", range: "*..*", displayDuringSetup: false
+			//input title: "Temperature Offset", description: "This feature allows you to correct any temperature variations by selecting an offset. Ex: If your sensor consistently reports a temp that's 5 degrees too warm, you'd enter \"-5\". If 3 degrees too cold, enter \"+3\".", displayDuringSetup: false, type: "paragraph", element: "paragraph"
+			input "tempOffset", "number", title: "Temperature Offset", description: "Adjust temperature by this many degrees", range: "*..*", displayDuringSetup: false
+			//input title: "Temperature Unit Conversion", description: "This feature allows you to select F to C, C to F, or no conversion", displayDuringSetup: false, type: "paragraph", element: "paragraph"
+			input "tempUnitConversion", "enum", title: "Temperature Unit Conversion - select F to C, C to F, or no conversion", description: "", defaultValue: "1", required: true, multiple: false, options:[["1":"none"], ["2":"Fahrenheit to Celsius"], ["3":"Celsius to Fahrenheit"]], displayDuringSetup: false
 		}
 	}
     
@@ -56,7 +58,7 @@ metadata {
                                 [value: 35, color: "#d04e00"],
                                 [value: 37, color: "#bc2323"],
                                 // Fahrenheit
-                                [value: 32, color: "#153591"],
+                                [value: 40, color: "#153591"],
                                 [value: 44, color: "#1e9cbb"],
                                 [value: 59, color: "#90d2a7"],
                                 [value: 74, color: "#44b621"],
@@ -72,17 +74,41 @@ metadata {
 	}
 }
 
-def generateEvent(String name, String value) {
-	//log.debug("Passed values to routine generateEvent in device named $device: Name - $name  -  Value - $value")
-	// Offset the temperature based on preference
-    def offsetValue = Math.round((Float.parseFloat(value))*100.0)/100.0d
-    if (tempOffset) {
-    	offsetValue = offsetValue + tempOffset
+def parse(String description) {
+    log.debug "parse(${description}) called"
+	def parts = description.split(" ")
+    def name  = parts.length>0?parts[0].trim():null
+    def value = parts.length>1?parts[1].trim():null
+    if (name && value) {
+    	// Offset the temperature based on preference
+        def offsetValue = Math.round((Float.parseFloat(value))*100.0)/100.0d
+        if (tempOffset) {
+            offsetValue = offsetValue + tempOffset
+        }
+
+        if (tempUnitConversion == "2") {
+            //log.debug "tempUnitConversion = ${tempUnitConversion}"
+            double tempC = fahrenheitToCelsius(offsetValue.toFloat())  //convert from Fahrenheit to Celsius
+            offsetValue = tempC.round(2)
+        }
+
+        if (tempUnitConversion == "3") {
+            //log.debug "tempUnitConversion = ${tempUnitConversion}"
+            double tempC = celsiusToFahrenheit(offsetValue.toFloat())  //convert from Celsius to Fahrenheit
+            offsetValue = tempC.round(2)
+        }
+
+        // Update device
+        sendEvent(name: name, value: offsetValue)
+        // Update lastUpdated date and time
+        def nowDay = new Date().format("MMM dd", location.timeZone)
+        def nowTime = new Date().format("h:mm a", location.timeZone)
+        sendEvent(name: "lastUpdated", value: nowDay + " at " + nowTime, displayed: false)
     }
-    // Update device
-	sendEvent(name: name, value: (String)offsetValue)
-    // Update lastUpdated date and time
-    def nowDay = new Date().format("MMM dd", location.timeZone)
-    def nowTime = new Date().format("h:mm a", location.timeZone)
-    sendEvent(name: "lastUpdated", value: nowDay + " at " + nowTime, displayed: false)
+    else {
+    	log.debug "Missing either name or value.  Cannot parse!"
+    }
+}
+
+def installed() {
 }

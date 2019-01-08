@@ -319,7 +319,7 @@ namespace st
 			Serial.print(F("Everything: Received: "));
 			Serial.println(message);
 		}
-
+		
 		if (message == "refresh")
 		{
 			Everything::refreshDevices();
@@ -332,6 +332,12 @@ namespace st
 				p->beSmart(message);	//pass the incoming SmartThings Shield message to the correct Device's beSmart() routine
 			}
 		}
+		
+		if(Everything::callOnMsgRcvd!=0)
+		{
+			Everything::callOnMsgRcvd(message);
+		}
+
 	}
 	
 	//initialize static members
@@ -347,6 +353,7 @@ namespace st
 	bool Everything::debug=false;
 	byte Everything::bTimersPending=0;	//initialize variable
 	void (*Everything::callOnMsgSend)(const String &msg)=0; //initialize this callback function to null
+	void (*Everything::callOnMsgRcvd)(const String &msg)=0; //initialize this callback function to null
 	
 	//SmartThings static members
 	//#ifndef DISABLE_SMARTTHINGS
@@ -368,7 +375,7 @@ long freeRam()
 	extern int __heap_start, *__brkval;
 	int v;
 	return (int)&v - (__brkval == 0 ? (int)&__heap_start : (int)__brkval);
-#elif defined(ARDUINO_ARCH_ESP8266)
+#elif defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
 	return ESP.getFreeHeap();
 #elif defined(ARDUINO_ARCH_SAMD)
 	char top;
