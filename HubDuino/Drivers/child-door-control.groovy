@@ -22,6 +22,7 @@
  *    2017-08-23  Allan (vseven) Added a generateEvent routine that gets info from the parent device.  This routine runs each time the value is updated which can lead to other modifications of the device.
  *    2018-06-02  Dan Ogorchock  Revised/Simplified for Hubitat Composite Driver Model
  *    2018-09-22  Dan Ogorchock  Added preference for debug logging
+ *    2019-01/10  Troy Stephens  Skip call to push() based on current door state
  *
  *
  */
@@ -71,11 +72,21 @@ def logsOff(){
 
 // handle commands
 def open() {
-	push()
+    def currentState = device.currentState("door").value
+    log.debug("Current State for $device: $currentState")
+    if(currentState != "open" && currentState != "opening")
+    {
+        push()
+    }
 }
 
 def close() {
-	push()
+    def currentState = device.currentState("door").value
+    log.debug("Current State for $device: $currentState")
+    if(currentState != "closed" && currentState != "closing")
+    {
+        push()
+    }
 }
 
 def push() {
